@@ -1,0 +1,112 @@
+name: 'Changed Files action'
+description: 'A GitHub Action that outputs a list of changed files in a pull request.'
+author: 'YUMEMI Inc.'
+branding:
+  icon: 'file'
+  color: 'blue'
+inputs:
+  separator:
+    description: 'Separator between file names in plain format.'
+    required: false
+    default: ' '
+  format:
+    description: 'Output format for list of file names. Either plain or json.'
+    required: false
+    default: 'plain'
+  patterns:
+    description: 'Path pattern to filter. See README for details.'
+    required: false
+  exclude-statuses:
+    description: 'Status of pull request files to exclude from output. Specify added, modified, renamed, and removed separately.'
+    required: false
+  pull-request-number:
+    description: 'Target pull request number.'
+    required: false
+    default: ${{ github.event.pull_request.number }}
+outputs:
+  files:
+    description: 'List of file names after filtering.'
+    value: ${{ steps.result.outputs.exists != null && (inputs.format == 'json' && steps.result.outputs.files || join(fromJSON(steps.result.outputs.files), inputs.separator)) || '' }}
+  exists:
+    description: 'Whether at least one file exists after filtering.'
+    value: ${{ steps.result.outputs.exists }}
+  additions:
+    description: 'Total additions after filtering.'
+    value: ${{ steps.result.outputs.additions }}
+  deletions:
+    description: 'Total deletions after filtering.'
+    value: ${{ steps.result.outputs.deletions }}
+  changes:
+    description: 'Total changes after filtering.'
+    value: ${{ steps.result.outputs.changes }}
+runs:
+  using: 'composite'
+  steps:
+    - name: Prepare
+      id: prepare
+      shell: bash
+      env:
+        PATTERNS: ${{ inputs.patterns }}
+        EXC_STATUSES: ${{ inputs.exclude-statuses }}
+        IS_VALID_FORMAT: ${{ inputs.format != null && contains(fromJSON('["plain","json"]'), inputs.format) }}
+        PR_NUMBER: ${{ inputs.pull-request-number }}
+        GH_REPO: ${{ github.repository }} # for GitHub CLI
+        GH_TOKEN: ${{ github.token }} # for GitHub CLI
+      run: |
+        echo "::debug::gh version: $(gh --version | tr '\n' ' ')"
+        echo "::debug::jq version: $(jq --version)"
+
+        source "$GITHUB_ACTION_PATH/raise_error.sh"
+
+        patterns="$("$GITHUB_ACTION_PATH/get_multiline_input.sh" "$PATTERNS")"
+
+        exc_statuses=$("$GITHUB_ACTION_PATH/get_statuses.sh" "$EXC_STATUSES") > /dev/null 2>&1 || raise_error "'exclude-statuses' input can be used added, modified, renamed and removed."
+
+        if [ "$IS_VALID_FORMAT" != 'true' ]; then raise_error "'format' input must be plain or json."; fi
+
+        # have pemisson?
+        gh api repos/{owner}/{repo}/pulls --silent > /dev/null 2>&1 || raise_error "May not have 'pull-requests: read' permission."
+
+        # valid pull request number?
+        gh api "repos/{owner}/{repo}/pulls/$PR_NUMBER" --silent > /dev/null 2>&1 || raise_error "'pull-request-number' input is not valid."
+
+        files="$(gh api "repos/{owner}/{repo}/pulls/$PR_NUMBER/files" --paginate | jq -c '[.[]|{ filename, status, additions, deletions, changes }]')"
+
+        {
+          echo "patterns=$patterns"; echo "exc-statuses=$exc_statuses"; echo "files=$files"
+        } >> "$GITHUB_OUTPUT"
+    - name: Filter files
+      id: filter
+      uses: actions/github-script@v6
+      env:
+        FILES: ${{ steps.prepare.outputs.files }}
+        PATTERNS: ${{ steps.prepare.outputs.patterns }}
+        EXC_STATUSES: ${{ steps.prepare.outputs.exc-statuses }}
+      with:
+        script: |
+          const { GITHUB_ACTION_PATH, FILES, PATTERNS, EXC_STATUSES } = process.env;
+          const minimatch = require(`${GITHUB_ACTION_PATH}/dist/index.js`)
+          const files = JSON.parse(FILES), patterns = JSON.parse(PATTERNS), excStatuses = JSON.parse(EXC_STATUSES);
+          const incPatterns = patterns.filter(p => !p.startsWith('!'));
+          const excPatterns = patterns.filter(p => p.startsWith('!')).map(p => p.slice(1));
+          const option = { dot: true, nocomment: true, nonegate: true, noext: true };
+          return files.filter(f => incPatterns.length === 0 || incPatterns.some(p => minimatch(f.filename, p, option)))
+            .filter(f => !excPatterns.some(p => minimatch(f.filename, p, option)))
+            .filter(f => !excStatuses.some(s => f.status === s));
+    - name: Output results
+      id: result
+      shell: bash
+      env:
+        FILES: ${{ steps.filter.outputs.result }}
+      run: |
+        {
+          if [ "$FILES" != '[]' ]; then
+            echo "files=$(echo "$FILES" | jq -c '[.[].filename]')"
+            echo 'exists=true'
+            echo "additions=$(echo "$FILES" | jq '[.[].additions]|add')"
+            echo "deletions=$(echo "$FILES" | jq '[.[].deletions]|add')"
+            echo "changes=$(echo "$FILES" | jq '[.[].changes]|add')"
+          else
+            echo 'files=[]'; echo 'exists=false'; echo 'additions=0'; echo 'deletions=0'; echo 'changes=0'
+          fi
+        } >> "$GITHUB_OUTPUT"
