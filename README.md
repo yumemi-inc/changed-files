@@ -1,6 +1,6 @@
 [![CI](https://github.com/yumemi-inc/changed-files/actions/workflows/ci.yml/badge.svg)](https://github.com/yumemi-inc/changed-files/actions/workflows/ci.yml)
 
-# [BETA] Changed Files
+# Changed Files
 
 A GitHub Action that outputs a list of changed files in a pull request.
 This output can be filtered, which is useful if you want to do something if a particular file is included in a pull request.
@@ -17,7 +17,7 @@ Note that this action requires `pull-requests: read` permission.
 Use list of file names from `files` output.
 
 ```yaml
-- uses: yumemi-inc/changed-files@main
+- uses: yumemi-inc/changed-files@v1
   id: changed
 - run: |
     for file in ${{ steps.changed.outputs.files }}; do
@@ -33,7 +33,7 @@ Use list of file names from `files` output.
 By default, they are separated by spaces, but if you want to change the separator, specify it with `separator` input.
 
 ```yaml
-- uses: yumemi-inc/changed-files@main
+- uses: yumemi-inc/changed-files@v1
   id: changed
   with:
     separator: ','
@@ -42,7 +42,7 @@ By default, they are separated by spaces, but if you want to change the separato
 If you want to output in JSON instead of plain text like above, specify it with `format` input ( default is `plain` ).
 
 ```yaml
-- uses: yumemi-inc/changed-files@main
+- uses: yumemi-inc/changed-files@v1
   id: changed
   with:
     format: 'json'
@@ -53,7 +53,7 @@ If you want to output in JSON instead of plain text like above, specify it with 
 The list of files can be filtered by specifying `patterns` input.
 
 ```yaml
-- uses: yumemi-inc/changed-files@main
+- uses: yumemi-inc/changed-files@v1
   id: changed
   with:
     patterns: |
@@ -64,7 +64,7 @@ The list of files can be filtered by specifying `patterns` input.
 Specify the status of files to be excluded using `exclude-statuses` input.
 
 ```yaml
-- uses: yumemi-inc/changed-files@main
+- uses: yumemi-inc/changed-files@v1
   id: changed
   with:
     patterns: |
@@ -92,7 +92,7 @@ Often we are only interested in whether a particular file is included in a pull 
 You can check it like `steps.<id>.outputs.files != null` ( for JSON, `'[]'` instead of `null` ), but you can also use `exists` output.
 
 ```yaml
-- uses: yumemi-inc/changed-files@main
+- uses: yumemi-inc/changed-files@v1
   id: changed
   with:
     patterns: '!**/*.md'
@@ -109,7 +109,7 @@ This is useful for controlling step execution.
 
 ```yaml
 - uses: actions/checkout@v4
-- uses: yumemi-inc/changed-files@main
+- uses: yumemi-inc/changed-files@v1
   id: changed
   with:
     patterns: '**/*.js'
@@ -120,7 +120,7 @@ This is useful for controlling step execution.
 #### Add a label to a pull request:
 
 ```yaml
-- uses: yumemi-inc/changed-files@main
+- uses: yumemi-inc/changed-files@v1
   id: changed
   with:
     patterns: |
@@ -136,7 +136,7 @@ This is useful for controlling step execution.
 #### Annotate new files in a pull request using workflow commands:
 
 ```yaml
-- uses: yumemi-inc/changed-files@main
+- uses: yumemi-inc/changed-files@v1
   id: changed
   with:
     patterns: '**/*.xml'
@@ -155,13 +155,13 @@ For more information on workflow commands, see [Workflow commands for GitHub Act
 #### Warn with a comment on a pull request:
 
 ```yaml
-- uses: yumemi-inc/changed-files@main
+- uses: yumemi-inc/changed-files@v1
   id: changed-src
   with:
     patterns: |
       **/*.{js,ts}
       package.json
-- uses: yumemi-inc/changed-files@main
+- uses: yumemi-inc/changed-files@v1
   id: changed-build
   with:
     patterns: 'dist/**'
@@ -174,7 +174,7 @@ For more information on workflow commands, see [Workflow commands for GitHub Act
 #### Make the job fail:
 
 ```yaml
-- uses: yumemi-inc/changed-files@main
+- uses: yumemi-inc/changed-files@v1
   id: changed
   with:
     patterns: 'CHANGELOG.md'
@@ -192,7 +192,7 @@ For more information on workflow commands, see [Workflow commands for GitHub Act
 This can be used in comparison expressions.
 
 ```yaml
-- uses: yumemi-inc/changed-files@main
+- uses: yumemi-inc/changed-files@v1
   id: changed
   with:
     patterns: '!doc/**'
@@ -209,7 +209,7 @@ This can be used in comparison expressions.
 #### Add a label to a pull request:
 
 ```yaml
-- uses: yumemi-inc/changed-files@main
+- uses: yumemi-inc/changed-files@v1
   id: changed
   with:
     patterns: '!doc/**'
@@ -224,7 +224,7 @@ This can be used in comparison expressions.
 #### Warn with a comment on a pull request:
 
 ```yaml
-- uses: yumemi-inc/changed-files@main
+- uses: yumemi-inc/changed-files@v1
   id: changed
   with:
     patterns: '!doc/**'
@@ -243,7 +243,7 @@ This can be used in comparison expressions.
 Use JSON format output and [actions/github-script](https://github.com/actions/github-script).
 
 ```yaml
-- uses: yumemi-inc/changed-files@main
+- uses: yumemi-inc/changed-files@v1
   id: changed
   with:
     format: 'json'
@@ -266,7 +266,7 @@ Characters after `#` are treated as comments.
 Therefore, you can write an explanation for the pattern as a comment.
 
 ```yaml
-- uses: yumemi-inc/changed-files@main
+- uses: yumemi-inc/changed-files@v1
   id: changed
   with:
     patterns: |

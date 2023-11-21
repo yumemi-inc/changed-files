@@ -1,4 +1,4 @@
-name: 'Changed Files action'
+name: 'Changed Files with filter'
 description: 'A GitHub Action that outputs a list of changed files in a pull request.'
 author: 'YUMEMI Inc.'
 branding:
