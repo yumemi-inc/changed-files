@@ -289,6 +289,66 @@ Therefore, you can write an explanation for the pattern as a comment.
       !doc/**/*.png # exclude image files
 ```
 
+### Control job execution
+
+Set to job output, reference in subsequent jobs.
+
+```yaml
+outputs:
+  exists: ${{ steps.changed.outputs.exists }}
+steps:
+  - uses: yumemi-inc/changed-files@v1
+    id: changed
+    with:
+      patterns: '**/*.{kt,kts}'
+```
+
+
+<details>
+<summary>examples</summary>
+
+#### Run two jobs in parallel, then run a common job:
+
+```yaml
+jobs:
+  changed:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      exists-src: ${{ steps.changed-src.outputs.exists }}
+      exists-doc: ${{ steps.changed-doc.outputs.exists }}
+    steps:
+      - uses: yumemi-inc/changed-files@v1
+        id: changed-src
+        with:
+          patterns: 'src/**'
+      - uses: yumemi-inc/changed-files@v1
+        id: changed-doc
+        with:
+          patterns: 'doc/**'
+  job-src:
+    needs: [changed]
+    if: needs.changed.outputs.exists-src == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      ...
+  job-doc:
+    needs: [changed]
+    if: needs.changed.outputs.exists-doc == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      ...
+  job-common:
+    needs: [job-src, job-doc]
+    # treat skipped jobs as successful
+    if: cancelled() != true && contains(needs.*.result, 'failure') == false
+    runs-on: ubuntu-latest
+    steps:
+      ...
+```
+</details>
+
 ## About the glob expression of `pattern` input
 
 Basically, it complies with the [minimatch](https://www.npmjs.com/package/minimatch) library used in this action.
