@@ -42,6 +42,8 @@ jobs:
           format: 'plain'
           separator: ','
           pull-request-number: ${{ steps.pr-number.outputs.number }}
+          run-if-exists: |
+            echo '${{ steps.pr-number.outputs.number }}'
       - name: Show result
         if: always()
         shell: bash # for windlows

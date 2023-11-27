@@ -19,6 +19,9 @@ inputs:
   exclude-statuses:
     description: 'Status of pull request files to exclude from output. Specify added, modified, renamed, and removed separately.'
     required: false
+  run-if-exists:
+    description: 'Bash script to run if at least one file exists after filtering.'
+    required: false
   pull-request-number:
     description: 'Target pull request number.'
     required: false
@@ -110,3 +113,8 @@ runs:
             echo 'files=[]'; echo 'exists=false'; echo 'additions=0'; echo 'deletions=0'; echo 'changes=0'
           fi
         } >> "$GITHUB_OUTPUT"
+    - name: Run script
+      if: steps.result.outputs.exists == 'true' && inputs.run-if-exists != null
+      shell: bash
+      run: |
+        ${{ inputs.run-if-exists }}

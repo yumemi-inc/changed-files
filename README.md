@@ -186,6 +186,16 @@ For more information on workflow commands, see [Workflow commands for GitHub Act
 ```
 </details>
 
+If you just want to run a Bash script, you can use `run-if-exists` input.
+In this case, you can omit assigning a job id (`id: changed` in the above example) for the subsequent step, but note that output such as a list of files cannot be used here.
+
+```yaml
+- uses: yumemi-inc/changed-files@v1
+  with:
+    patterns: '!**/*.md'
+    run-if-exists: # do something..
+```
+
 ### Use number of changed lines
 
 `changes` output is the total number of changed lines.
