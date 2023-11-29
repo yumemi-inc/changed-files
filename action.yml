@@ -16,6 +16,9 @@ inputs:
   patterns:
     description: 'Path pattern to filter. See README for details.'
     required: false
+  statuses:
+    description: 'Status of pull request files to include from output. Specify added, modified, renamed, and removed separately.'
+    required: false
   exclude-statuses:
     description: 'Status of pull request files to exclude from output. Specify added, modified, renamed, and removed separately.'
     required: false
@@ -50,6 +53,7 @@ runs:
       shell: bash
       env:
         PATTERNS: ${{ inputs.patterns }}
+        STATUSES: ${{ inputs.statuses }}
         EXC_STATUSES: ${{ inputs.exclude-statuses }}
         IS_VALID_FORMAT: ${{ inputs.format != null && contains(fromJSON('["plain","json"]'), inputs.format) }}
         PR_NUMBER: ${{ inputs.pull-request-number }}
@@ -63,6 +67,7 @@ runs:
 
         patterns="$("$GITHUB_ACTION_PATH/get_multiline_input.sh" "$PATTERNS")"
 
+        statuses=$("$GITHUB_ACTION_PATH/get_statuses.sh" "$STATUSES") > /dev/null 2>&1 || raise_error "'statuses' input can be used added, modified, renamed and removed."
         exc_statuses=$("$GITHUB_ACTION_PATH/get_statuses.sh" "$EXC_STATUSES") > /dev/null 2>&1 || raise_error "'exclude-statuses' input can be used added, modified, renamed and removed."
 
         if [ "$IS_VALID_FORMAT" != 'true' ]; then raise_error "'format' input must be plain or json."; fi
@@ -76,7 +81,7 @@ runs:
         files="$(gh api "repos/{owner}/{repo}/pulls/$PR_NUMBER/files" --paginate | jq -c '[.[]|{ filename, status, additions, deletions, changes }]')"
 
         {
-          echo "patterns=$patterns"; echo "exc-statuses=$exc_statuses"; echo "files=$files"
+          echo "patterns=$patterns"; echo "statuses=$statuses"; echo "exc-statuses=$exc_statuses"; echo "files=$files"
         } >> "$GITHUB_OUTPUT"
     - name: Filter files
       id: filter
@@ -84,17 +89,19 @@ runs:
       env:
         FILES: ${{ steps.prepare.outputs.files }}
         PATTERNS: ${{ steps.prepare.outputs.patterns }}
+        STATUSES: ${{ steps.prepare.outputs.statuses }}
         EXC_STATUSES: ${{ steps.prepare.outputs.exc-statuses }}
       with:
         script: |
-          const { GITHUB_ACTION_PATH, FILES, PATTERNS, EXC_STATUSES } = process.env;
+          const { GITHUB_ACTION_PATH, FILES, PATTERNS, STATUSES, EXC_STATUSES } = process.env;
           const minimatch = require(`${GITHUB_ACTION_PATH}/dist/index.js`)
-          const files = JSON.parse(FILES), patterns = JSON.parse(PATTERNS), excStatuses = JSON.parse(EXC_STATUSES);
+          const files = JSON.parse(FILES), patterns = JSON.parse(PATTERNS), statuses = JSON.parse(STATUSES), excStatuses = JSON.parse(EXC_STATUSES);
           const incPatterns = patterns.filter(p => !p.startsWith('!'));
           const excPatterns = patterns.filter(p => p.startsWith('!')).map(p => p.slice(1));
           const option = { dot: true, nocomment: true, nonegate: true, noext: true };
           return files.filter(f => incPatterns.length === 0 || incPatterns.some(p => minimatch(f.filename, p, option)))
             .filter(f => !excPatterns.some(p => minimatch(f.filename, p, option)))
+            .filter(f => statuses.length === 0 || statuses.some(s => f.status === s))
             .filter(f => !excStatuses.some(s => f.status === s));
     - name: Output results
       id: result

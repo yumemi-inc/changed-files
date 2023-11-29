@@ -38,6 +38,7 @@ jobs:
             '/%:, # unescaped symbols
             a	b # tab. control characters are escaped
             \n\r\t # treated as a string
+          statuses: 'added|modified|renamed|removed'
           exclude-statuses: 'removed'
           format: 'plain'
           separator: ','
