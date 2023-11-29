@@ -1,5 +1,5 @@
 name: 'Changed Files with filter'
-description: 'A GitHub Action that outputs a list of changed files in a pull request.'
+description: 'A GitHub Action that outputs a list of changed files in a pull request or between commits.'
 author: 'YUMEMI Inc.'
 branding:
   icon: 'file'
@@ -26,11 +26,11 @@ inputs:
     description: 'Bash script to run if at least one file exists after filtering.'
     required: false
   head-ref:
-    description: ''
+    description: 'Current branch, tag, or commit SHA to compare with base.'
     required: false
     default: ${{ github.sha }}
   base-ref:
-    description: ''
+    description: 'branch, tag, or commit SHA as a basis for comparison.'
     required: false
     default: ${{ github.event_name == 'push' && github.event.before || '' }}
 outputs:
