@@ -61,7 +61,7 @@ The list of files can be filtered by specifying `patterns` input.
       !doc/**
 ```
 
-Specify the status of files to be excluded using `exclude-statuses` input.
+To filter by file status, specify `statuses` input.
 
 ```yaml
 - uses: yumemi-inc/changed-files@v1
@@ -70,7 +70,7 @@ Specify the status of files to be excluded using `exclude-statuses` input.
     patterns: |
       **/*.{yml,yaml}
       !doc/**
-    exclude-statuses: 'removed'
+    statuses: 'added'
 ```
 
 <details>
@@ -84,7 +84,17 @@ File statuses are displayed as an icon in pull requests:
 Note that renamed files will have `renamed` status even if edited.
 </details>
 
-To specify multiple statuses, separate them with non-alphabetic characters, such as a space or `,`.
+To specify multiple statuses, separate them with non-alphabetic characters, such as a space, `,`, and `|`.
+
+```yaml
+statuses: 'added|modified|renamed'
+```
+
+Alternatively, you can specify the status to exclude with `exclude-statuses` input.
+
+```yaml
+exclude-statuses: 'removed'
+```
 
 ### Whether a particular file is included in a pull request
 
@@ -140,7 +150,7 @@ This is useful for controlling step execution.
   id: changed
   with:
     patterns: '**/*.xml'
-    exclude-statuses: 'modified renamed removed'
+    statuses: 'added'
 - if: steps.changed.outputs.exists == 'true'
   run: |
     for file in ${{ steps.changed.outputs.files }}; do
