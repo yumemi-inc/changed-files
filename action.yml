@@ -25,10 +25,14 @@ inputs:
   run-if-exists:
     description: 'Bash script to run if at least one file exists after filtering.'
     required: false
-  pull-request-number:
-    description: 'Target pull request number.'
+  head-ref:
+    description: ''
     required: false
-    default: ${{ github.event.pull_request.number }}
+    default: ${{ github.sha }}
+  base-ref:
+    description: ''
+    required: false
+    default: ${{ github.event_name == 'push' && github.event.before || '' }}
 outputs:
   files:
     description: 'List of file names after filtering.'
@@ -56,7 +60,8 @@ runs:
         STATUSES: ${{ inputs.statuses }}
         EXC_STATUSES: ${{ inputs.exclude-statuses }}
         IS_VALID_FORMAT: ${{ inputs.format != null && contains(fromJSON('["plain","json"]'), inputs.format) }}
-        PR_NUMBER: ${{ inputs.pull-request-number }}
+        HEAD_REF: ${{ inputs.head-ref }}
+        BASE_REF: ${{ inputs.base-ref }}
         GH_REPO: ${{ github.repository }} # for GitHub CLI
         GH_TOKEN: ${{ github.token }} # for GitHub CLI
       run: |
@@ -72,13 +77,18 @@ runs:
 
         if [ "$IS_VALID_FORMAT" != 'true' ]; then raise_error "'format' input must be plain or json."; fi
 
+        if [ -z "$HEAD_REF" ]; then raise_error "Specify 'head-ref' input."; fi
+
         # have pemisson?
-        gh api repos/{owner}/{repo}/pulls --silent > /dev/null 2>&1 || raise_error "May not have 'pull-requests: read' permission."
-
-        # valid pull request number?
-        gh api "repos/{owner}/{repo}/pulls/$PR_NUMBER" --silent > /dev/null 2>&1 || raise_error "'pull-request-number' input is not valid."
-
-        files="$(gh api "repos/{owner}/{repo}/pulls/$PR_NUMBER/files" --paginate | jq -c '[.[]|{ filename, status, additions, deletions, changes }]')"
+        gh api repos/{owner}/{repo}/branches --silent > /dev/null 2>&1 || raise_error "May not have 'contents: read' permission."
+          
+        if [ -z "$BASE_REF" ]; then
+          files="$(gh api "repos/{owner}/{repo}/commits/$HEAD_REF" | jq -c '[.files[]|{ filename, status, additions, deletions, changes }]')" \
+            > /dev/null 2>&1 || raise_error "'head-ref' input is not valid."
+        else
+          files="$(gh api "repos/{owner}/{repo}/compare/${BASE_REF}...${HEAD_REF}" | jq -c '[.files[]|{ filename, status, additions, deletions, changes }]')" \
+            > /dev/null 2>&1 || raise_error "'head-ref' input or 'base-ref' input is not valid."
+        fi
 
         {
           echo "patterns=$patterns"; echo "statuses=$statuses"; echo "exc-statuses=$exc_statuses"; echo "files=$files"
