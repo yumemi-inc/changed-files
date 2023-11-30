@@ -14,8 +14,7 @@ Note that this action requires `contents: read` permission.
 
 ### Supported workflow trigger events
 
-There are no trigger restrictions.
-In `pull_request` events and `push` events, it works without special considerations.
+Works on any event, including `pull_request` and  `push` events.
 See [Explicitly specify comparison targets](#explicitly-specify-comparison-targets) for details.
 
 ### Use a list of files
@@ -264,19 +263,18 @@ This can be used in comparison expressions.
 
 ### Explicitly specify comparison targets
 
-Specify `head-ref` input and `base-ref` input.
+Specify `head-ref` and `base-ref` inputs.
 Any branch, tag, or commit SHA can be specified for tease inputs.
 
 Changed files resulting from comparing head and base will be output.
 If `base-ref` input is not set, the changed files in the single commit specified by `head-ref` input (if a branch is specified, its head commit) will be output.
 
 The default for `head-ref` input is `${{ github.sha }}`.
-Only in `push` events, the default for `base-ref` input is `${{ github.event.before }}`.
-In the `push` event, if you want to clear the default value specified for `base-ref` input for some reason, specify `''`(empty string).
+`base-ref` input is basically not set by default, but `${{ github.event.before }}` is set in `push` events (to clear it for some reason, specify an empty string like `''`).
 
 `${{ github.sha }}` in `pull_request` events includes all commits of that pull request, so when using this action in `pull_request` events and `push` events, there is no need to specify these inputs unless necessary.
 
-If you want to specify it explicitly, do the following:
+If you want to specify them explicitly, do the following:
 
 ```yaml
 - uses: actions/checkout@v4
