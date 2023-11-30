@@ -2,22 +2,28 @@
 
 # Changed Files
 
-A GitHub Action that outputs a list of changed files in a pull request.
-This output can be filtered, which is useful if you want to do something if a particular file is included in a pull request.
+A GitHub Action that outputs a list of changed files in a pull request or between commits.
+This output can be filtered by specified path patterns, which is useful if you want to do something if a particular file has changed.
 
 [Path filters](https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#onpushpull_requestpull_request_targetpathspaths-ignore) can also be used in workflow triggers, but using this action allows detailed control with steps.
 
 ## Usage
 
 See [action.yml](action.yml) for available action inputs and outputs.
-Note that this action requires `pull-requests: read` permission.
+Note that this action requires `contents: read` permission.
+
+### Supported workflow trigger events
+
+There are no trigger restrictions.
+In `pull_request` events and `push` events, it works without special considerations.
+See [Explicitly specify comparison targets](#explicitly-specify-comparison-targets) for details.
 
 ### Use a list of files
 
 Use list of file names from `files` output.
 
 ```yaml
-- uses: yumemi-inc/changed-files@v1
+- uses: yumemi-inc/changed-files@v2
   id: changed
 - run: |
     for file in ${{ steps.changed.outputs.files }}; do
@@ -33,16 +39,16 @@ Use list of file names from `files` output.
 By default, they are separated by spaces, but if you want to change the separator, specify it with `separator` input.
 
 ```yaml
-- uses: yumemi-inc/changed-files@v1
+- uses: yumemi-inc/changed-files@v2
   id: changed
   with:
     separator: ','
 ```
 
-If you want to output in JSON instead of plain text like above, specify it with `format` input ( default is `plain` ).
+If you want to output in JSON instead of plain text like above, specify it with `format` input (default is `plain`).
 
 ```yaml
-- uses: yumemi-inc/changed-files@v1
+- uses: yumemi-inc/changed-files@v2
   id: changed
   with:
     format: 'json'
@@ -53,7 +59,7 @@ If you want to output in JSON instead of plain text like above, specify it with 
 The list of files can be filtered by specifying `patterns` input.
 
 ```yaml
-- uses: yumemi-inc/changed-files@v1
+- uses: yumemi-inc/changed-files@v2
   id: changed
   with:
     patterns: |
@@ -64,7 +70,7 @@ The list of files can be filtered by specifying `patterns` input.
 To filter by file status, specify `statuses` input.
 
 ```yaml
-- uses: yumemi-inc/changed-files@v1
+- uses: yumemi-inc/changed-files@v2
   id: changed
   with:
     patterns: |
@@ -76,7 +82,7 @@ To filter by file status, specify `statuses` input.
 <details>
 <summary>about file status</summary>
 
-There are four statuses for changed files in a pull request: `added`, `modified`, `renamed`, and `removed`.
+There are four statuses for changed files: `added`, `modified`, `renamed`, and `removed`.
 File statuses are displayed as an icon in pull requests:
 
 ![image](doc/status.png)
@@ -90,19 +96,19 @@ To specify multiple statuses, separate them with non-alphabetic characters, such
 statuses: 'added|modified|renamed'
 ```
 
-Alternatively, you can specify the status to exclude with `exclude-statuses` input.
+Alternatively, you can specify statuses to exclude with `exclude-statuses` input.
 
 ```yaml
 exclude-statuses: 'removed'
 ```
 
-### Whether a particular file is included in a pull request
+### Whether a particular file is included
 
-Often we are only interested in whether a particular file is included in a pull request, not the list of files.
-You can check it like `steps.<id>.outputs.files != null` ( for JSON, `'[]'` instead of `null` ), but you can also use `exists` output.
+Often we are only interested in whether a particular file is included, not the list of files.
+You can check it like `steps.<id>.outputs.files != null` (for JSON, `'[]'` instead of `null`), but you can also use `exists` output.
 
 ```yaml
-- uses: yumemi-inc/changed-files@v1
+- uses: yumemi-inc/changed-files@v2
   id: changed
   with:
     patterns: '!**/*.md'
@@ -119,7 +125,7 @@ This is useful for controlling step execution.
 
 ```yaml
 - uses: actions/checkout@v4
-- uses: yumemi-inc/changed-files@v1
+- uses: yumemi-inc/changed-files@v2
   id: changed
   with:
     patterns: '**/*.js'
@@ -130,7 +136,7 @@ This is useful for controlling step execution.
 #### Add a label to a pull request:
 
 ```yaml
-- uses: yumemi-inc/changed-files@v1
+- uses: yumemi-inc/changed-files@v2
   id: changed
   with:
     patterns: |
@@ -146,7 +152,7 @@ This is useful for controlling step execution.
 #### Annotate new files in a pull request using workflow commands:
 
 ```yaml
-- uses: yumemi-inc/changed-files@v1
+- uses: yumemi-inc/changed-files@v2
   id: changed
   with:
     patterns: '**/*.xml'
@@ -165,13 +171,13 @@ For more information on workflow commands, see [Workflow commands for GitHub Act
 #### Warn with a comment on a pull request:
 
 ```yaml
-- uses: yumemi-inc/changed-files@v1
+- uses: yumemi-inc/changed-files@v2
   id: changed-src
   with:
     patterns: |
       **/*.{js,ts}
       package.json
-- uses: yumemi-inc/changed-files@v1
+- uses: yumemi-inc/changed-files@v2
   id: changed-build
   with:
     patterns: 'dist/**'
@@ -184,7 +190,7 @@ For more information on workflow commands, see [Workflow commands for GitHub Act
 #### Make the job fail:
 
 ```yaml
-- uses: yumemi-inc/changed-files@v1
+- uses: yumemi-inc/changed-files@v2
   id: changed
   with:
     patterns: 'CHANGELOG.md'
@@ -200,7 +206,7 @@ If you just want to run a Bash script, you can use `run-if-exists` input.
 In this case, you can omit assigning a job id (`id: changed` in the above example) for the subsequent step, but note that output such as a list of files cannot be used here.
 
 ```yaml
-- uses: yumemi-inc/changed-files@v1
+- uses: yumemi-inc/changed-files@v2
   with:
     patterns: '!**/*.md'
     run-if-exists: # do something..
@@ -212,7 +218,7 @@ In this case, you can omit assigning a job id (`id: changed` in the above exampl
 This can be used in comparison expressions.
 
 ```yaml
-- uses: yumemi-inc/changed-files@v1
+- uses: yumemi-inc/changed-files@v2
   id: changed
   with:
     patterns: '!doc/**'
@@ -221,7 +227,7 @@ This can be used in comparison expressions.
   run: # do something..
 ```
 
-`additions` output and `deletions` output can also be used in the same way ( `additions + deletions = changes` ).
+`additions` output and `deletions` output can also be used in the same way (`additions + deletions = changes`).
 
 <details>
 <summary>examples</summary>
@@ -229,7 +235,7 @@ This can be used in comparison expressions.
 #### Add a label to a pull request:
 
 ```yaml
-- uses: yumemi-inc/changed-files@v1
+- uses: yumemi-inc/changed-files@v2
   id: changed
   with:
     patterns: '!doc/**'
@@ -244,7 +250,7 @@ This can be used in comparison expressions.
 #### Warn with a comment on a pull request:
 
 ```yaml
-- uses: yumemi-inc/changed-files@v1
+- uses: yumemi-inc/changed-files@v2
   id: changed
   with:
     patterns: '!doc/**'
@@ -256,63 +262,49 @@ This can be used in comparison expressions.
 ```
 </details>
 
+### Explicitly specify comparison targets
+
+Specify `head-ref` input and `base-ref` input.
+Any branch, tag, or commit SHA can be specified for tease inputs.
+
+Changed files resulting from comparing head and base will be output.
+If `base-ref` input is not set, the changed files in the single commit specified by `head-ref` input (if a branch is specified, its head commit) will be output.
+
+The default for `head-ref` input is `${{ github.sha }}`.
+Only in `push` events, the default for `base-ref` input is `${{ github.event.before }}`.
+In the `push` event, if you want to clear the default value specified for `base-ref` input for some reason, specify `''`(empty string).
+
+`${{ github.sha }}` in `pull_request` events includes all commits of that pull request, so when using this action in `pull_request` events and `push` events, there is no need to specify these inputs unless necessary.
+
+If you want to specify it explicitly, do the following:
+
+```yaml
+- uses: actions/checkout@v4
+- uses: yumemi-inc/changed-files@v2
+  with:
+    head-ref: 'main' # branch to be released
+    base-ref: 'release-x.x.x' # previous release tag
+    patterns: '**/*.js'
+    run-if-exists: npm run deploy
+```
+
+Note that `base-ref` must be older than `head-ref` if they are on the same commit line.
+
 ## Tips
-
-### Process output list with JavaScript
-
-Use JSON format output and [actions/github-script](https://github.com/actions/github-script).
-
-```yaml
-- uses: yumemi-inc/changed-files@v1
-  id: changed
-  with:
-    format: 'json'
-- uses: actions/github-script@v6
-  env:
-    FILES: ${{ steps.changed.outputs.files }}
-  with:
-    script: |
-      const { FILES } = process.env;
-      const files = JSON.parse(FILES);
-      files.forEach(file => {
-        // do something..
-        console.log(file);
-      });
-```
-
-### Comment to `patterns` input
-
-Characters after `#` are treated as comments.
-Therefore, you can write an explanation for the pattern as a comment.
-
-```yaml
-- uses: yumemi-inc/changed-files@v1
-  id: changed
-  with:
-    patterns: |
-      # sorces
-      **/*.{js,css,png}
-      !dist/** # exclude built files
-
-      # documents
-      doc/**
-      !doc/**/*.png # exclude image files
-```
 
 ### Control job execution
 
-Set to job output, reference in subsequent jobs.
+Set the output of this action to the output of the job, and reference it in subsequent jobs.
 
 ```yaml
 outputs:
   exists: ${{ steps.changed.outputs.exists }}
 steps:
-  - uses: yumemi-inc/changed-files@v1
+  - uses: yumemi-inc/changed-files@v2
     id: changed
     with:
       patterns: '**/*.{kt,kts}'
 ```
-
 
 <details>
 <summary>examples</summary>
@@ -324,16 +316,16 @@ jobs:
   changed:
     runs-on: ubuntu-latest
     permissions:
-      pull-requests: read
+      contents: read
     outputs:
       exists-src: ${{ steps.changed-src.outputs.exists }}
       exists-doc: ${{ steps.changed-doc.outputs.exists }}
     steps:
-      - uses: yumemi-inc/changed-files@v1
+      - uses: yumemi-inc/changed-files@v2
         id: changed-src
         with:
           patterns: 'src/**'
-      - uses: yumemi-inc/changed-files@v1
+      - uses: yumemi-inc/changed-files@v2
         id: changed-doc
         with:
           patterns: 'doc/**'
@@ -358,6 +350,47 @@ jobs:
       ...
 ```
 </details>
+
+### Process output list with JavaScript
+
+Use JSON format output and [actions/github-script](https://github.com/actions/github-script).
+
+```yaml
+- uses: yumemi-inc/changed-files@v2
+  id: changed
+  with:
+    format: 'json'
+- uses: actions/github-script@v6
+  env:
+    FILES: ${{ steps.changed.outputs.files }}
+  with:
+    script: |
+      const { FILES } = process.env;
+      const files = JSON.parse(FILES);
+      files.forEach(file => {
+        // do something..
+        console.log(file);
+      });
+```
+
+### Comment to `patterns` input
+
+Characters after `#` are treated as comments.
+Therefore, you can write an explanation for the pattern as a comment.
+
+```yaml
+- uses: yumemi-inc/changed-files@v2
+  id: changed
+  with:
+    patterns: |
+      # sorces
+      **/*.{js,css,png}
+      !dist/** # exclude built files
+
+      # documents
+      doc/**
+      !doc/**/*.png # exclude image files
+```
 
 ## About the glob expression of `pattern` input
 
