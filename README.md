@@ -261,20 +261,19 @@ This can be used in comparison expressions.
 ```
 </details>
 
-### Explicitly specify comparison targets
+### Specify comparison targets
 
-Specify `head-ref` and `base-ref` inputs.
+You can specify `head-ref` and `base-ref` inputs if necessary.
 Any branch, tag, or commit SHA can be specified for tease inputs.
 
 Changed files resulting from comparing head and base will be output.
 If `base-ref` input is not set, the changed files in the single commit specified by `head-ref` input (if a branch is specified, its head commit) will be output.
 
-The default for `head-ref` input is `${{ github.sha }}`.
+The default for `head-ref` input is `${{ github.sha }}`, which includes all commits of that pull request in `pull_request` events.
 `base-ref` input is basically not set by default, but `${{ github.event.before }}` is set in `push` events (to clear it for some reason, specify an empty string like `''`).
 
-`${{ github.sha }}` in `pull_request` events includes all commits of that pull request, so when using this action in `pull_request` events and `push` events, there is no need to specify these inputs unless necessary.
-
-If you want to specify them explicitly, do the following:
+So when using this action in `pull_request` events and `push` events, these inputs do not need to be changed from the default unless necessary.
+To explicitly specify them if needed for these events or for use in other events, do the following:
 
 ```yaml
 - uses: actions/checkout@v4
@@ -287,6 +286,17 @@ If you want to specify them explicitly, do the following:
 ```
 
 Note that `base-ref` must be older than `head-ref` if they are on the same commit line.
+
+> [!WARNING]  
+> The upper limit of the number of files when `base-ref` input is specified is **300** (**3000** when not specified).
+> Also, when `base-ref` input is specified, comparison is done using [three-dot](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-comparing-branches-in-pull-requests#three-dot-and-two-dot-git-diff-comparisons).
+> These limitations are because this aciton uses GitHub API.
+>
+> In most cases, this is not a problem unless you specify irregular branches or tags in `base-ref` input, but if these limitations are a problem, use [yumem-inc/path-filter]().
+> This has limited functionality as it does not filter by status or output the number of changed lines, but since it does not have the above limitations, it functions as a complete path filter using `patterns` inut and `exists` output.
+>
+> My recommendation is to use this action, which has many functions, in `pull_request` events. Since `base-ref` input is not specified, there is no problem unless it is a large pull request with 3000 files.
+> For other events, you don't need many functions, so use [yumem-inc/path-filter]().
 
 ## Tips
 
