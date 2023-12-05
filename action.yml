@@ -83,49 +83,55 @@ runs:
         gh api repos/{owner}/{repo}/branches --silent > /dev/null 2>&1 || raise_error "May not have 'contents: read' permission."
           
         if [ -z "$BASE_REF" ]; then
-          files="$(gh api "repos/{owner}/{repo}/commits/$HEAD_REF" | jq -c '[.files[]|{ filename, status, additions, deletions, changes }]')" \
+          # limited to 3000 files
+          files="$(gh api "repos/{owner}/{repo}/commits/$HEAD_REF" --paginate | jq '.files[]|{ filename, status, additions, deletions, changes }' | jq -cs)" \
             > /dev/null 2>&1 || raise_error "'head-ref' input is not valid."
+          if [ "$(echo "$files" | jq 'length')" -ge 3000 ]; then raise_error "Cannot handle more than 3000 files."; fi
         else
+          # files do not support pagination and are limited to 300 files.
           files="$(gh api "repos/{owner}/{repo}/compare/${BASE_REF}...${HEAD_REF}" | jq -c '[.files[]|{ filename, status, additions, deletions, changes }]')" \
             > /dev/null 2>&1 || raise_error "'head-ref' input or 'base-ref' input is not valid."
+          if [ "$(echo "$files" | jq 'length')" -ge 300 ]; then raise_error "Cannot handle more than 300 files when 'base-ref' input is specified."; fi
         fi
 
         {
           echo "patterns=$patterns"; echo "statuses=$statuses"; echo "exc-statuses=$exc_statuses"; echo "files=$files"
         } >> "$GITHUB_OUTPUT"
+        echo -n "$files" > "$GITHUB_ACTION_PATH/files.json" # output large data to filles
     - name: Filter files
       id: filter
       uses: actions/github-script@v6
       env:
-        FILES: ${{ steps.prepare.outputs.files }}
         PATTERNS: ${{ steps.prepare.outputs.patterns }}
         STATUSES: ${{ steps.prepare.outputs.statuses }}
         EXC_STATUSES: ${{ steps.prepare.outputs.exc-statuses }}
       with:
         script: |
-          const { GITHUB_ACTION_PATH, FILES, PATTERNS, STATUSES, EXC_STATUSES } = process.env;
-          const minimatch = require(`${GITHUB_ACTION_PATH}/dist/index.js`)
-          const files = JSON.parse(FILES), patterns = JSON.parse(PATTERNS), statuses = JSON.parse(STATUSES), excStatuses = JSON.parse(EXC_STATUSES);
+          const { GITHUB_ACTION_PATH, PATTERNS, STATUSES, EXC_STATUSES } = process.env;
+          const fs = require('fs');
+          const minimatch = require(`${GITHUB_ACTION_PATH}/dist/index.js`);
+          const files = JSON.parse(fs.readFileSync(`${GITHUB_ACTION_PATH}/files.json`, 'utf-8'))
+          const patterns = JSON.parse(PATTERNS), statuses = JSON.parse(STATUSES), excStatuses = JSON.parse(EXC_STATUSES);
           const incPatterns = patterns.filter(p => !p.startsWith('!'));
           const excPatterns = patterns.filter(p => p.startsWith('!')).map(p => p.slice(1));
           const option = { dot: true, nocomment: true, nonegate: true, noext: true };
-          return files.filter(f => incPatterns.length === 0 || incPatterns.some(p => minimatch(f.filename, p, option)))
+          const filteredFiles = files.filter(f => incPatterns.length === 0 || incPatterns.some(p => minimatch(f.filename, p, option)))
             .filter(f => !excPatterns.some(p => minimatch(f.filename, p, option)))
             .filter(f => statuses.length === 0 || statuses.some(s => f.status === s))
             .filter(f => !excStatuses.some(s => f.status === s));
+          fs.writeFileSync(`${GITHUB_ACTION_PATH}/filtered_files.json`, JSON.stringify(filteredFiles), 'utf-8');
     - name: Output results
       id: result
       shell: bash
-      env:
-        FILES: ${{ steps.filter.outputs.result }}
       run: |
+        files="$(cat "$GITHUB_ACTION_PATH/filtered_files.json")"
         {
-          if [ "$FILES" != '[]' ]; then
-            echo "files=$(echo "$FILES" | jq -c '[.[].filename]')"
+          if [ "$files" != '[]' ]; then
+            echo "files=$(echo "$files" | jq -c '[.[].filename]')"
             echo 'exists=true'
-            echo "additions=$(echo "$FILES" | jq '[.[].additions]|add')"
-            echo "deletions=$(echo "$FILES" | jq '[.[].deletions]|add')"
-            echo "changes=$(echo "$FILES" | jq '[.[].changes]|add')"
+            echo "additions=$(echo "$files" | jq '[.[].additions]|add')"
+            echo "deletions=$(echo "$files" | jq '[.[].deletions]|add')"
+            echo "changes=$(echo "$files" | jq '[.[].changes]|add')"
           else
             echo 'files=[]'; echo 'exists=false'; echo 'additions=0'; echo 'deletions=0'; echo 'changes=0'
           fi
