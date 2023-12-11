@@ -103,7 +103,7 @@ runs:
         echo -n "$files" > "$GITHUB_ACTION_PATH/files.json" # output large data to filles
     - name: Filter files
       id: filter
-      uses: actions/github-script@v6
+      uses: actions/github-script@v7
       env:
         PATTERNS: ${{ steps.prepare.outputs.patterns }}
         STATUSES: ${{ steps.prepare.outputs.statuses }}
