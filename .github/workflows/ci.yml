@@ -12,7 +12,7 @@ jobs:
         runner: [ubuntu-latest, macos-latest, windows-latest]
       fail-fast: false
     permissions:
-      contents: read # for checkout and this action
+      contents: read # for checkout, and this action requires
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Check out
@@ -42,6 +42,11 @@ jobs:
         shell: bash # for windlows
         run: |
           {
+            echo '### files before filtering'
+            echo "$(cat '${{ steps.changed.outputs.action-path }}/files.json')"
+            echo '### files after filtering'
+            echo "$(cat '${{ steps.changed.outputs.action-path }}/filtered_files.json')"
+            echo '### outputs'
             echo '${{ steps.changed.outputs.exists }}'
             echo '${{ steps.changed.outputs.files }}'
             echo '${{ steps.changed.outputs.additions }}'
