@@ -35,7 +35,7 @@ inputs:
   base-ref:
     description: 'branch, tag, or commit SHA as a basis for comparison.'
     required: false
-    default: ${{ github.event_name == 'push' && github.event.before || '' }}
+    default: ':default:'
 outputs:
   files:
     description: 'List of file names after filtering.'
@@ -64,13 +64,12 @@ runs:
         EXC_STATUSES: ${{ inputs.exclude-statuses }}
         IS_VALID_FORMAT: ${{ inputs.format != null && contains(fromJSON('["plain","json"]'), inputs.format) }}
         HEAD_REF: ${{ inputs.head-ref }}
-        BASE_REF: ${{ inputs.base-ref }}
+        BASE_REF: ${{ (github.event_name == 'push' && inputs.base-ref == ':default:' && inputs.head-ref == github.event.after && github.event.before) || (inputs.base-ref != ':default:' && inputs.base-ref) || '' }}
         GH_REPO: ${{ github.repository }} # for GitHub CLI
         GH_TOKEN: ${{ github.token }} # for GitHub CLI
       run: |
         echo "::debug::gh version: $(gh --version | tr '\n' ' ')"
         echo "::debug::jq version: $(jq --version)"
-
         source "$GITHUB_ACTION_PATH/raise_error.sh"
 
         patterns="$("$GITHUB_ACTION_PATH/get_multiline_input.sh" "$PATTERNS")"
@@ -91,7 +90,7 @@ runs:
             > /dev/null 2>&1 || raise_error "'head-ref' input is not valid."
           if [ "$(echo "$files" | jq 'length')" -ge 3000 ]; then raise_error "Cannot handle more than 3000 files."; fi
         else
-          # files do not support pagination and are limited to 300 files.
+          # files do not support pagination and are limited to 300 files
           files="$(gh api "repos/{owner}/{repo}/compare/${BASE_REF}...${HEAD_REF}" | jq -c '[.files[]|{ filename, status, additions, deletions, changes }]')" \
             > /dev/null 2>&1 || raise_error "'head-ref' input or 'base-ref' input is not valid."
           if [ "$(echo "$files" | jq 'length')" -ge 300 ]; then raise_error "Cannot handle more than 300 files when 'base-ref' input is specified."; fi
@@ -111,9 +110,8 @@ runs:
       with:
         script: |
           const { GITHUB_ACTION_PATH, PATTERNS, STATUSES, EXC_STATUSES } = process.env;
-          const fs = require('fs');
-          const minimatch = require(`${GITHUB_ACTION_PATH}/dist/index.js`);
-          const files = JSON.parse(fs.readFileSync(`${GITHUB_ACTION_PATH}/files.json`, 'utf-8'))
+          const fs = require('fs'), minimatch = require(`${GITHUB_ACTION_PATH}/dist/index.js`);
+          const files = JSON.parse(fs.readFileSync(`${GITHUB_ACTION_PATH}/files.json`, 'utf-8'));
           const patterns = JSON.parse(PATTERNS), statuses = JSON.parse(STATUSES), excStatuses = JSON.parse(EXC_STATUSES);
           const incPatterns = patterns.filter(p => !p.startsWith('!'));
           const excPatterns = patterns.filter(p => p.startsWith('!')).map(p => p.slice(1));
