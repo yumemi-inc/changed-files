@@ -201,14 +201,14 @@ For more information on workflow commands, see [Workflow commands for GitHub Act
 ```
 </details>
 
-If you just want to run a Bash script, you can use `run-if-exists` input.
+If you just want to run a Bash script, you can use `run` input.
 In this case, you can omit assigning a job id (`id: changed` in the above example) for the subsequent step, but note that output such as a list of files cannot be used here.
 
 ```yaml
 - uses: yumemi-inc/changed-files@v2
   with:
     patterns: '!**/*.md'
-    run-if-exists: # do something..
+    run: # do something..
 ```
 
 ### Use number of changed lines
@@ -282,7 +282,7 @@ To explicitly specify them if needed for these events or for use in other events
     head-ref: 'main' # branch to be released
     base-ref: 'release-x.x.x' # previous release tag
     patterns: '**/*.js'
-    run-if-exists: npm run deploy
+    run: npm run deploy
 ```
 
 Note that `base-ref` must be older than `head-ref` if they are on the same commit line.

@@ -35,7 +35,7 @@ jobs:
           exclude-statuses: 'removed'
           format: 'plain'
           separator: ','
-          run-if-exists: |
+          run: |
             echo 'hello'
       - name: Show result
         if: always()
