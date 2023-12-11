@@ -98,7 +98,7 @@ runs:
         fi
 
         {
-          echo "patterns=$patterns"; echo "statuses=$statuses"; echo "exc-statuses=$exc_statuses"; echo "files=$files"
+          echo "patterns=$patterns"; echo "statuses=$statuses"; echo "exc-statuses=$exc_statuses"
         } >> "$GITHUB_OUTPUT"
         echo -n "$files" > "$GITHUB_ACTION_PATH/files.json" # output large data to filles
     - name: Filter files
