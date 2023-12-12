@@ -1,5 +1,5 @@
 name: 'Changed Files with filter'
-description: 'A GitHub Action that outputs a list of changed files in a pull request or between commits.'
+description: 'A GitHub Action that outputs a list of changed files in pull requests and commits.'
 author: 'YUMEMI Inc.'
 branding:
   icon: 'file'
@@ -22,17 +22,20 @@ inputs:
   exclude-statuses:
     description: 'Status of pull request files to exclude from output. Specify added, modified, renamed, and removed separately.'
     required: false
-  run-if-exists:
+  run:
     description: 'Bash script to run if at least one file exists after filtering.'
+    required: false
+  run-if-exists: # input name up to v2.0.1, use run input instead
+    description: ''
     required: false
   head-ref:
     description: 'Current branch, tag, or commit SHA to compare with base.'
     required: false
     default: ${{ github.sha }}
   base-ref:
-    description: 'branch, tag, or commit SHA as a basis for comparison.'
+    description: 'Branch, tag, or commit SHA as a basis for comparison.'
     required: false
-    default: ${{ github.event_name == 'push' && github.event.before || '' }}
+    default: ':default:'
 outputs:
   files:
     description: 'List of file names after filtering.'
@@ -49,6 +52,9 @@ outputs:
   changes:
     description: 'Total changes after filtering.'
     value: ${{ steps.result.outputs.changes }}
+  action-path:
+    description: 'Used to access artifact files.'
+    value: ${{ steps.prepare.outputs.action-path }}
 runs:
   using: 'composite'
   steps:
@@ -61,13 +67,13 @@ runs:
         EXC_STATUSES: ${{ inputs.exclude-statuses }}
         IS_VALID_FORMAT: ${{ inputs.format != null && contains(fromJSON('["plain","json"]'), inputs.format) }}
         HEAD_REF: ${{ inputs.head-ref }}
-        BASE_REF: ${{ inputs.base-ref }}
+        BASE_REF: ${{ (github.event_name == 'push' && inputs.base-ref == ':default:' && inputs.head-ref == github.event.after && github.event.before) || (inputs.base-ref != ':default:' && inputs.base-ref) || '' }}
         GH_REPO: ${{ github.repository }} # for GitHub CLI
         GH_TOKEN: ${{ github.token }} # for GitHub CLI
       run: |
         echo "::debug::gh version: $(gh --version | tr '\n' ' ')"
         echo "::debug::jq version: $(jq --version)"
-
+        echo "action-path=$GITHUB_ACTION_PATH" >> "$GITHUB_OUTPUT"
         source "$GITHUB_ACTION_PATH/raise_error.sh"
 
         patterns="$("$GITHUB_ACTION_PATH/get_multiline_input.sh" "$PATTERNS")"
@@ -88,19 +94,19 @@ runs:
             > /dev/null 2>&1 || raise_error "'head-ref' input is not valid."
           if [ "$(echo "$files" | jq 'length')" -ge 3000 ]; then raise_error "Cannot handle more than 3000 files."; fi
         else
-          # files do not support pagination and are limited to 300 files.
+          # files do not support pagination and are limited to 300 files
           files="$(gh api "repos/{owner}/{repo}/compare/${BASE_REF}...${HEAD_REF}" | jq -c '[.files[]|{ filename, status, additions, deletions, changes }]')" \
             > /dev/null 2>&1 || raise_error "'head-ref' input or 'base-ref' input is not valid."
           if [ "$(echo "$files" | jq 'length')" -ge 300 ]; then raise_error "Cannot handle more than 300 files when 'base-ref' input is specified."; fi
         fi
 
         {
-          echo "patterns=$patterns"; echo "statuses=$statuses"; echo "exc-statuses=$exc_statuses"; echo "files=$files"
+          echo "patterns=$patterns"; echo "statuses=$statuses"; echo "exc-statuses=$exc_statuses"
         } >> "$GITHUB_OUTPUT"
         echo -n "$files" > "$GITHUB_ACTION_PATH/files.json" # output large data to filles
     - name: Filter files
       id: filter
-      uses: actions/github-script@v6
+      uses: actions/github-script@v7
       env:
         PATTERNS: ${{ steps.prepare.outputs.patterns }}
         STATUSES: ${{ steps.prepare.outputs.statuses }}
@@ -108,9 +114,8 @@ runs:
       with:
         script: |
           const { GITHUB_ACTION_PATH, PATTERNS, STATUSES, EXC_STATUSES } = process.env;
-          const fs = require('fs');
-          const minimatch = require(`${GITHUB_ACTION_PATH}/dist/index.js`);
-          const files = JSON.parse(fs.readFileSync(`${GITHUB_ACTION_PATH}/files.json`, 'utf-8'))
+          const fs = require('fs'), minimatch = require(`${GITHUB_ACTION_PATH}/dist/index.js`);
+          const files = JSON.parse(fs.readFileSync(`${GITHUB_ACTION_PATH}/files.json`, 'utf-8'));
           const patterns = JSON.parse(PATTERNS), statuses = JSON.parse(STATUSES), excStatuses = JSON.parse(EXC_STATUSES);
           const incPatterns = patterns.filter(p => !p.startsWith('!'));
           const excPatterns = patterns.filter(p => p.startsWith('!')).map(p => p.slice(1));
@@ -136,8 +141,13 @@ runs:
             echo 'files=[]'; echo 'exists=false'; echo 'additions=0'; echo 'deletions=0'; echo 'changes=0'
           fi
         } >> "$GITHUB_OUTPUT"
-    - name: Run script
+    - name: Run script # input name up to v2.0.1
       if: steps.result.outputs.exists == 'true' && inputs.run-if-exists != null
       shell: bash
       run: |
         ${{ inputs.run-if-exists }}
+    - name: Run script
+      if: steps.result.outputs.exists == 'true' && inputs.run != null
+      shell: bash
+      run: |
+        ${{ inputs.run }}

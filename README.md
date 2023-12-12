@@ -2,10 +2,8 @@
 
 # Changed Files
 
-A GitHub Action that outputs a list of changed files in a pull request or between commits.
-This output can be filtered by specified path patterns, which is useful if you want to do something if a particular file has changed.
-
-[Path filters](https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#onpushpull_requestpull_request_targetpathspaths-ignore) can also be used in workflow triggers, but using this action allows detailed control with steps.
+A GitHub Action that outputs a list of changed files in pull requests and commits.
+It is useful when you want to run steps or jobs based on changed files.
 
 ## Usage
 
@@ -15,7 +13,7 @@ Note that this action requires `contents: read` permission.
 ### Supported workflow trigger events
 
 Works on any event, including `pull_request` and  `push` events.
-See [Explicitly specify comparison targets](#explicitly-specify-comparison-targets) for details.
+See [Specify comparison targets](#specify-comparison-targets) for details.
 
 ### Use a list of files
 
@@ -201,14 +199,13 @@ For more information on workflow commands, see [Workflow commands for GitHub Act
 ```
 </details>
 
-If you just want to run a Bash script, you can use `run-if-exists` input.
-In this case, you can omit assigning a job id (`id: changed` in the above example) for the subsequent step, but note that output such as a list of files cannot be used here.
+If you just want to run a Bash script, you can use `run` input. In this case, there is no need to define `id:`, since `exists` output is not used.
 
 ```yaml
 - uses: yumemi-inc/changed-files@v2
   with:
     patterns: '!**/*.md'
-    run-if-exists: # do something..
+    run: # do something..
 ```
 
 ### Use number of changed lines
@@ -263,27 +260,28 @@ This can be used in comparison expressions.
 
 ### Specify comparison targets
 
-You can specify `head-ref` and `base-ref` inputs if necessary.
+Basically, it is not necessary when using this action in `pull_request` events and `push` events, but you can specify `head-ref` and `base-ref` inputs if necessary.
 Any branch, tag, or commit SHA can be specified for tease inputs.
 
-Changed files resulting from comparing head and base will be output.
-If `base-ref` input is not set, the changed files in the single commit specified by `head-ref` input (if a branch is specified, its head commit) will be output.
-
-The default for `head-ref` input is `${{ github.sha }}`, which includes all commits of that pull request in `pull_request` events.
-`base-ref` input is basically not set by default, but `${{ github.event.before }}` is set in `push` events (to clear it for some reason, specify an empty string like `''`).
-
-So when using this action in `pull_request` events and `push` events, these inputs do not need to be changed from the default unless necessary.
-To explicitly specify them if needed for these events or for use in other events, do the following:
-
 ```yaml
-- uses: actions/checkout@v4
 - uses: yumemi-inc/changed-files@v2
   with:
     head-ref: 'main' # branch to be released
     base-ref: 'release-x.x.x' # previous release tag
     patterns: '**/*.js'
-    run-if-exists: npm run deploy
+    run: |
+      ...
+      npm run deploy
 ```
+
+A comparison is made between head ref and base ref.
+If `base-ref` input is not set, the changed files are from the single commit (if a branch is specified, its head commit) specified in `head-ref` input.
+
+The default for `head-ref` input is `${{ github.sha }}`, which includes all commits of that pull request in `pull_request` events.
+`base-ref` input is basically not set by default, but `${{ github.event.before }}` is set in `push` events (to clear it for some reason, specify an empty string like `''`).
+
+So when using this action in `pull_request` events and `push` events, these inputs do not need to be changed from the default unless necessary.
+If needed for these events or for use in other events, specify them explicitly.
 
 Note that `base-ref` must be older than `head-ref` if they are on the same commit line.
 
@@ -292,17 +290,18 @@ Note that `base-ref` must be older than `head-ref` if they are on the same commi
 > Also, when `base-ref` input is specified, comparison is done using [three-dot](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-comparing-branches-in-pull-requests#three-dot-and-two-dot-git-diff-comparisons).
 > These limitations are because this aciton uses GitHub API.
 >
-> In most cases, this is not a problem unless you specify irregular branches or tags in `base-ref` input, but if these limitations are a problem, use [yumem-inc/path-filter]().
+> If these limitations are a problem, use [yumem-inc/path-filter](https://github.com/yumemi-inc/path-filter).
 > This has limited functionality as it does not filter by status or output the number of changed lines, but since it does not have the above limitations, it functions as a complete path filter using `patterns` inut and `exists` output.
 >
-> My recommendation is to use this action, which has many functions, in `pull_request` events. Since `base-ref` input is not specified, there is no problem unless it is a large pull request with 3000 files.
-> For other events, you don't need many functions, so use [yumem-inc/path-filter]().
+> My recommendation is to use this action, which has many functions, in `pull_request` events.
+> Since `base-ref` input is not specified, there is no problem unless it is a large pull request with 3000 files.
+> For other events, you don't need many functions, so use [yumem-inc/path-filter](https://github.com/yumemi-inc/path-filter).
 
 ## Tips
 
 ### Control job execution
 
-Set the output of this action to the output of the job, and reference it in subsequent jobs.
+Set this action's `exists` output to the job's output, and reference it in subsequent jobs.
 
 ```yaml
 outputs:
@@ -399,6 +398,25 @@ Therefore, you can write an explanation for the pattern as a comment.
       doc/**
       !doc/**/*.png # exclude image files
 ```
+
+### Debugging
+
+A list of changed files before and after filtering, including status, etc., is output to a file in JSON format and can be accessed as follows:
+
+```yaml
+- uses: yumemi-inc/changed-files@v2
+  id: changed
+  with:
+    patterns: '!**/*.md'
+- run: |
+    # before filtering
+    cat '${{ steps.changed.outputs.action-path }}/files.json'
+    # after filtering
+    cat '${{ steps.changed.outputs.action-path }}/filtered_files.json'
+```
+
+Refer to these files when debugging `head-ref`, `base-ref`, and other inputs of filtering conditions.
+You may use these files for purposes other than debugging, but note that these files will be overwritten if you use this action multiple times in the same job.
 
 ## About the glob expression of `pattern` input
 
