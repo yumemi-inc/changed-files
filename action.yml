@@ -1,5 +1,5 @@
 name: 'Changed Files with filter'
-description: 'A GitHub Action that outputs a list of changed files in a pull request or between commits.'
+description: 'A GitHub Action that outputs a list of changed files in pull requests and commits.'
 author: 'YUMEMI Inc.'
 branding:
   icon: 'file'
@@ -33,7 +33,7 @@ inputs:
     required: false
     default: ${{ github.sha }}
   base-ref:
-    description: 'branch, tag, or commit SHA as a basis for comparison.'
+    description: 'Branch, tag, or commit SHA as a basis for comparison.'
     required: false
     default: ':default:'
 outputs:
@@ -53,7 +53,7 @@ outputs:
     description: 'Total changes after filtering.'
     value: ${{ steps.result.outputs.changes }}
   action-path:
-    description: ''
+    description: 'Used to access artifact files.'
     value: ${{ steps.prepare.outputs.action-path }}
 runs:
   using: 'composite'
