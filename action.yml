@@ -52,6 +52,9 @@ outputs:
   changes:
     description: 'Total changes after filtering.'
     value: ${{ steps.result.outputs.changes }}
+  action-path:
+    description: ''
+    value: ${{ steps.prepare.outputs.action-path }}
 runs:
   using: 'composite'
   steps:
@@ -70,6 +73,7 @@ runs:
       run: |
         echo "::debug::gh version: $(gh --version | tr '\n' ' ')"
         echo "::debug::jq version: $(jq --version)"
+        echo "action-path=$GITHUB_ACTION_PATH" >> "$GITHUB_OUTPUT"
         source "$GITHUB_ACTION_PATH/raise_error.sh"
 
         patterns="$("$GITHUB_ACTION_PATH/get_multiline_input.sh" "$PATTERNS")"
