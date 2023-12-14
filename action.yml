@@ -35,7 +35,13 @@ inputs:
   base-ref:
     description: 'Branch, tag, or commit SHA as a basis for comparison.'
     required: false
-    default: ':default:'
+    default: |-
+      ${{
+        (github.event_name == 'pull_request' && github.base_ref) ||
+        (github.event_name == 'push' && (startsWith(github.event.before, '0000') && github.event.repository.default_branch || github.event.before)) ||
+        (github.event_name == 'merge_group' && github.event.merge_group.base_sha) ||
+        ''
+      }}
 outputs:
   files:
     description: 'List of file names after filtering.'
@@ -67,7 +73,7 @@ runs:
         EXC_STATUSES: ${{ inputs.exclude-statuses }}
         IS_VALID_FORMAT: ${{ inputs.format != null && contains(fromJSON('["plain","json"]'), inputs.format) }}
         HEAD_REF: ${{ inputs.head-ref }}
-        BASE_REF: ${{ (github.event_name == 'push' && inputs.base-ref == ':default:' && inputs.head-ref == github.event.after && github.event.before) || (inputs.base-ref != ':default:' && inputs.base-ref) || '' }}
+        BASE_REF: ${{ inputs.base-ref }}
         GH_REPO: ${{ github.repository }} # for GitHub CLI
         GH_TOKEN: ${{ github.token }} # for GitHub CLI
       run: |
