@@ -37,6 +37,8 @@ jobs:
           separator: ','
           run: |
             echo 'hello'
+          #head-ref: ${{ github.event.pull_request.head.sha }}
+          #base-ref: main
       - name: Show result
         if: always()
         shell: bash # for windlows

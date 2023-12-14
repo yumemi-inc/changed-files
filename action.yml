@@ -87,16 +87,23 @@ runs:
 
         # have pemisson?
         gh api repos/{owner}/{repo}/branches --silent > /dev/null 2>&1 || raise_error "May not have 'contents: read' permission."
-          
-        if [ -z "$BASE_REF" ]; then
+
+        head_sha="$(gh api "repos/{owner}/{repo}/commits/$HEAD_REF" | jq -r '.sha')" > /dev/null 2>&1 || raise_error "'head-ref' input is not valid."
+
+        if [ -n "$BASE_REF" ]; then
+          base_sha="$(gh api "repos/{owner}/{repo}/commits/$BASE_REF" | jq -r '.sha')" > /dev/null 2>&1 || raise_error "'base-ref' input is not valid."
+          # if possible, avoid using compare, which has a limit of 300 files
+          # todo エラーになるか確認.ならないならnull文字で判定
+          head_previous_sha="$(gh api "repos/{owner}/{repo}/commits/$head_sha" | jq -r '.parents[0].sha')" > /dev/null 2>&1 || "No history. 'head-ref' input reference may be the first commit."
+        fi
+
+        if [[ -z "$BASE_REF" || "$base_sha" == "$head_previous_sha" ]]; then
           # limited to 3000 files
-          files="$(gh api "repos/{owner}/{repo}/commits/$HEAD_REF" --paginate | jq '.files[]|{ filename, status, additions, deletions, changes }' | jq -cs)" \
-            > /dev/null 2>&1 || raise_error "'head-ref' input is not valid."
+          files="$(gh api "repos/{owner}/{repo}/commits/$head_sha" --paginate | jq '.files[]|{ filename, status, additions, deletions, changes }' | jq -cs)"
           if [ "$(echo "$files" | jq 'length')" -ge 3000 ]; then raise_error "Cannot handle more than 3000 files."; fi
         else
           # files do not support pagination and are limited to 300 files
-          files="$(gh api "repos/{owner}/{repo}/compare/${BASE_REF}...${HEAD_REF}" | jq -c '[.files[]|{ filename, status, additions, deletions, changes }]')" \
-            > /dev/null 2>&1 || raise_error "'head-ref' input or 'base-ref' input is not valid."
+          files="$(gh api "repos/{owner}/{repo}/compare/${base_sha}...${head_sha}" | jq -c '[.files[]|{ filename, status, additions, deletions, changes }]')"
           if [ "$(echo "$files" | jq 'length')" -ge 300 ]; then raise_error "Cannot handle more than 300 files when 'base-ref' input is specified."; fi
         fi
 
