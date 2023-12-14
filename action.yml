@@ -35,7 +35,12 @@ inputs:
   base-ref:
     description: 'Branch, tag, or commit SHA as a basis for comparison.'
     required: false
-    default: ':default:'
+    default: |-
+      ${{
+        (github.event_name == 'pull_request' && github.base_ref) ||
+        (github.event_name == 'push' && (startsWith(github.event.before, '0000') && github.event.repository.default_branch || github.event.before)) ||
+        ''
+      }}
 outputs:
   files:
     description: 'List of file names after filtering.'
@@ -67,7 +72,7 @@ runs:
         EXC_STATUSES: ${{ inputs.exclude-statuses }}
         IS_VALID_FORMAT: ${{ inputs.format != null && contains(fromJSON('["plain","json"]'), inputs.format) }}
         HEAD_REF: ${{ inputs.head-ref }}
-        BASE_REF: ${{ (github.event_name == 'push' && inputs.base-ref == ':default:' && inputs.head-ref == github.event.after && github.event.before) || (inputs.base-ref != ':default:' && inputs.base-ref) || '' }}
+        BASE_REF: ${{ inputs.base-ref }}
         GH_REPO: ${{ github.repository }} # for GitHub CLI
         GH_TOKEN: ${{ github.token }} # for GitHub CLI
       run: |
@@ -83,25 +88,36 @@ runs:
 
         if [ "$IS_VALID_FORMAT" != 'true' ]; then raise_error "'format' input must be plain or json."; fi
 
-        if [ -z "$HEAD_REF" ]; then raise_error "Specify 'head-ref' input."; fi
+        if [[ -z "$HEAD_REF" || -z "$BASE_REF" ]]; then raise_error "Specify 'head-ref' and 'base-ref' inputs."; fi
 
         # have pemisson?
         gh api repos/{owner}/{repo}/branches --silent > /dev/null 2>&1 || raise_error "May not have 'contents: read' permission."
 
         head_sha="$(gh api "repos/{owner}/{repo}/commits/$HEAD_REF" | jq -r '.sha')" > /dev/null 2>&1 || raise_error "'head-ref' input is not valid."
 
+        echo "head_sha=$head_sha"
+
         if [ -n "$BASE_REF" ]; then
           base_sha="$(gh api "repos/{owner}/{repo}/commits/$BASE_REF" | jq -r '.sha')" > /dev/null 2>&1 || raise_error "'base-ref' input is not valid."
           # if possible, avoid using compare, which has a limit of 300 files
-          # todo エラーになるか確認.ならないならnull文字で判定
-          head_previous_sha="$(gh api "repos/{owner}/{repo}/commits/$head_sha" | jq -r '.parents[0].sha')" > /dev/null 2>&1 || "No history. 'head-ref' input reference may be the first commit."
+          head_previous_sha="$(gh api "repos/{owner}/{repo}/commits/$head_sha" | jq -r '.parents[0].sha')"
+          if [ "$head_previous_sha" == 'null' ]; then raise_error "No history. 'head-ref' input reference may be the first commit."; fi
+
+          echo "base_sha=$base_sha"
+          echo "head_previous_sha=$head_previous_sha"
+
         fi
 
-        if [[ -z "$BASE_REF" || "$base_sha" == "$head_previous_sha" ]]; then
+        if [ "$base_sha" == "$head_sha" ]; then
+          echo "mode=skip"
+          files='[]'
+        elif [[ -z "$BASE_REF" || "$base_sha" == "$head_previous_sha" ]]; then
+          echo "mode=single"
           # limited to 3000 files
           files="$(gh api "repos/{owner}/{repo}/commits/$head_sha" --paginate | jq '.files[]|{ filename, status, additions, deletions, changes }' | jq -cs)"
           if [ "$(echo "$files" | jq 'length')" -ge 3000 ]; then raise_error "Cannot handle more than 3000 files."; fi
         else
+          echo "mode=compare"
           # files do not support pagination and are limited to 300 files
           files="$(gh api "repos/{owner}/{repo}/compare/${base_sha}...${head_sha}" | jq -c '[.files[]|{ filename, status, additions, deletions, changes }]')"
           if [ "$(echo "$files" | jq 'length')" -ge 300 ]; then raise_error "Cannot handle more than 300 files when 'base-ref' input is specified."; fi
