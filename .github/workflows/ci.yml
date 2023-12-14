@@ -1,12 +1,9 @@
 name: CI
 
 on:
-  push
-  #  pull_request:
-#  merge_group:
+  pull_request:
+  merge_group:
 
-
-  
 jobs:
   check:
     name: Use this action for check
@@ -40,8 +37,6 @@ jobs:
           separator: ','
           run: |
             echo 'hello'
-          #head-ref: main
-          base-ref: 
       - name: Show result
         if: always()
         shell: bash # for windlows

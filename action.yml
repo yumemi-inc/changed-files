@@ -39,6 +39,7 @@ inputs:
       ${{
         (github.event_name == 'pull_request' && github.base_ref) ||
         (github.event_name == 'push' && (startsWith(github.event.before, '0000') && github.event.repository.default_branch || github.event.before)) ||
+        (github.event_name == 'merge_group' && github.event.merge_group.base_sha) ||
         ''
       }}
 outputs:
@@ -94,30 +95,18 @@ runs:
         gh api repos/{owner}/{repo}/branches --silent > /dev/null 2>&1 || raise_error "May not have 'contents: read' permission."
 
         head_sha="$(gh api "repos/{owner}/{repo}/commits/$HEAD_REF" | jq -r '.sha')" > /dev/null 2>&1 || raise_error "'head-ref' input is not valid."
+        base_sha="$(gh api "repos/{owner}/{repo}/commits/$BASE_REF" | jq -r '.sha')" > /dev/null 2>&1 || raise_error "'base-ref' input is not valid."
 
-        echo "head_sha=$head_sha"
-
-        if [ -n "$BASE_REF" ]; then
-          base_sha="$(gh api "repos/{owner}/{repo}/commits/$BASE_REF" | jq -r '.sha')" > /dev/null 2>&1 || raise_error "'base-ref' input is not valid."
-          # if possible, avoid using compare, which has a limit of 300 files
-          head_previous_sha="$(gh api "repos/{owner}/{repo}/commits/$head_sha" | jq -r '.parents[0].sha')"
-          if [ "$head_previous_sha" == 'null' ]; then raise_error "No history. 'head-ref' input reference may be the first commit."; fi
-
-          echo "base_sha=$base_sha"
-          echo "head_previous_sha=$head_previous_sha"
-
-        fi
+        head_previous_sha="$(gh api "repos/{owner}/{repo}/commits/$head_sha" | jq -r '.parents[0].sha')"
+        if [ "$head_previous_sha" == 'null' ]; then raise_error "No history. 'head-ref' input reference may be the first commit."; fi
 
         if [ "$base_sha" == "$head_sha" ]; then
-          echo "mode=skip"
           files='[]'
-        elif [[ -z "$BASE_REF" || "$base_sha" == "$head_previous_sha" ]]; then
-          echo "mode=single"
-          # limited to 3000 files
+        elif [ "$base_sha" == "$head_previous_sha" ]; then
+          # avoid using copare, which has a limit of 300 files
           files="$(gh api "repos/{owner}/{repo}/commits/$head_sha" --paginate | jq '.files[]|{ filename, status, additions, deletions, changes }' | jq -cs)"
           if [ "$(echo "$files" | jq 'length')" -ge 3000 ]; then raise_error "Cannot handle more than 3000 files."; fi
         else
-          echo "mode=compare"
           # files do not support pagination and are limited to 300 files
           files="$(gh api "repos/{owner}/{repo}/compare/${base_sha}...${head_sha}" | jq -c '[.files[]|{ filename, status, additions, deletions, changes }]')"
           if [ "$(echo "$files" | jq 'length')" -ge 300 ]; then raise_error "Cannot handle more than 300 files when 'base-ref' input is specified."; fi
