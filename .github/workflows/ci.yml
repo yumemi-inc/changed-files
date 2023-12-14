@@ -43,9 +43,13 @@ jobs:
         run: |
           {
             echo '### files before filtering'
-            echo "$(cat '${{ steps.changed.outputs.action-path }}/files.json')"
+            echo '```json'
+            cat '${{ steps.changed.outputs.action-path }}/files.json' | jq
+            echo '```'
             echo '### files after filtering'
-            echo "$(cat '${{ steps.changed.outputs.action-path }}/filtered_files.json')"
+            echo '```json'
+            cat '${{ steps.changed.outputs.action-path }}/filtered_files.json' | jq
+            echo '```'
             echo '### outputs'
             echo '${{ steps.changed.outputs.exists }}'
             echo '${{ steps.changed.outputs.files }}'
