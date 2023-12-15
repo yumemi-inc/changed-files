@@ -25,9 +25,6 @@ inputs:
   run:
     description: 'Bash script to run if at least one file exists after filtering.'
     required: false
-  run-if-exists: # input name up to v2.0.1, use run input instead
-    description: ''
-    required: false
   head-ref:
     description: 'Current branch, tag, or commit SHA to compare with base.'
     required: false
@@ -153,11 +150,6 @@ runs:
             echo 'files=[]'; echo 'exists=false'; echo 'additions=0'; echo 'deletions=0'; echo 'changes=0'
           fi
         } >> "$GITHUB_OUTPUT"
-    - name: Run script # input name up to v2.0.1
-      if: steps.result.outputs.exists == 'true' && inputs.run-if-exists != null
-      shell: bash
-      run: |
-        ${{ inputs.run-if-exists }}
     - name: Run script
       if: steps.result.outputs.exists == 'true' && inputs.run != null
       shell: bash
