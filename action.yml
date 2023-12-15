@@ -25,9 +25,6 @@ inputs:
   run:
     description: 'Bash script to run if at least one file exists after filtering.'
     required: false
-  run-if-exists: # input name up to v2.0.1, use run input instead
-    description: ''
-    required: false
   head-ref:
     description: 'Current branch, tag, or commit SHA to compare with base.'
     required: false
@@ -35,7 +32,13 @@ inputs:
   base-ref:
     description: 'Branch, tag, or commit SHA as a basis for comparison.'
     required: false
-    default: ':default:'
+    default: |-
+      ${{
+        (github.event_name == 'pull_request' && github.base_ref) ||
+        (github.event_name == 'push' && (startsWith(github.event.before, '0000') && github.event.repository.default_branch || github.event.before)) ||
+        (github.event_name == 'merge_group' && github.event.merge_group.base_sha) ||
+        github.event.repository.default_branch
+      }}
 outputs:
   files:
     description: 'List of file names after filtering.'
@@ -67,7 +70,7 @@ runs:
         EXC_STATUSES: ${{ inputs.exclude-statuses }}
         IS_VALID_FORMAT: ${{ inputs.format != null && contains(fromJSON('["plain","json"]'), inputs.format) }}
         HEAD_REF: ${{ inputs.head-ref }}
-        BASE_REF: ${{ (github.event_name == 'push' && inputs.base-ref == ':default:' && inputs.head-ref == github.event.after && github.event.before) || (inputs.base-ref != ':default:' && inputs.base-ref) || '' }}
+        BASE_REF: ${{ inputs.base-ref }}
         GH_REPO: ${{ github.repository }} # for GitHub CLI
         GH_TOKEN: ${{ github.token }} # for GitHub CLI
       run: |
@@ -83,20 +86,26 @@ runs:
 
         if [ "$IS_VALID_FORMAT" != 'true' ]; then raise_error "'format' input must be plain or json."; fi
 
-        if [ -z "$HEAD_REF" ]; then raise_error "Specify 'head-ref' input."; fi
+        if [[ -z "$HEAD_REF" || -z "$BASE_REF" ]]; then raise_error "Specify 'head-ref' and 'base-ref' inputs."; fi
 
         # have pemisson?
         gh api repos/{owner}/{repo}/branches --silent > /dev/null 2>&1 || raise_error "May not have 'contents: read' permission."
-          
-        if [ -z "$BASE_REF" ]; then
-          # limited to 3000 files
-          files="$(gh api "repos/{owner}/{repo}/commits/$HEAD_REF" --paginate | jq '.files[]|{ filename, status, additions, deletions, changes }' | jq -cs)" \
-            > /dev/null 2>&1 || raise_error "'head-ref' input is not valid."
+
+        head_sha="$(gh api "repos/{owner}/{repo}/commits/$HEAD_REF" | jq -r '.sha')" > /dev/null 2>&1 || raise_error "'head-ref' input is not valid."
+        base_sha="$(gh api "repos/{owner}/{repo}/commits/$BASE_REF" | jq -r '.sha')" > /dev/null 2>&1 || raise_error "'base-ref' input is not valid."
+
+        head_previous_sha="$(gh api "repos/{owner}/{repo}/commits/$head_sha" | jq -r '.parents[0].sha')"
+        if [ "$head_previous_sha" == 'null' ]; then raise_error "No history. 'head-ref' input reference may be the first commit."; fi
+
+        if [ "$base_sha" == "$head_sha" ]; then
+          files='[]'
+        elif [ "$base_sha" == "$head_previous_sha" ]; then
+          # avoid using copare, which has a limit of 300 files
+          files="$(gh api "repos/{owner}/{repo}/commits/$head_sha" --paginate | jq '.files[]|{ filename, status, additions, deletions, changes }' | jq -cs)"
           if [ "$(echo "$files" | jq 'length')" -ge 3000 ]; then raise_error "Cannot handle more than 3000 files."; fi
         else
           # files do not support pagination and are limited to 300 files
-          files="$(gh api "repos/{owner}/{repo}/compare/${BASE_REF}...${HEAD_REF}" | jq -c '[.files[]|{ filename, status, additions, deletions, changes }]')" \
-            > /dev/null 2>&1 || raise_error "'head-ref' input or 'base-ref' input is not valid."
+          files="$(gh api "repos/{owner}/{repo}/compare/${base_sha}...${head_sha}" | jq -c '[.files[]|{ filename, status, additions, deletions, changes }]')"
           if [ "$(echo "$files" | jq 'length')" -ge 300 ]; then raise_error "Cannot handle more than 300 files when 'base-ref' input is specified."; fi
         fi
 
@@ -141,11 +150,6 @@ runs:
             echo 'files=[]'; echo 'exists=false'; echo 'additions=0'; echo 'deletions=0'; echo 'changes=0'
           fi
         } >> "$GITHUB_OUTPUT"
-    - name: Run script # input name up to v2.0.1
-      if: steps.result.outputs.exists == 'true' && inputs.run-if-exists != null
-      shell: bash
-      run: |
-        ${{ inputs.run-if-exists }}
     - name: Run script
       if: steps.result.outputs.exists == 'true' && inputs.run != null
       shell: bash

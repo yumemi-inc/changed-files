@@ -12,7 +12,7 @@ Note that this action requires `contents: read` permission.
 
 ### Supported workflow trigger events
 
-Works on any event, including `pull_request` and  `push` events.
+Works on any event.
 See [Specify comparison targets](#specify-comparison-targets) for details.
 
 ### Use a list of files
@@ -20,7 +20,7 @@ See [Specify comparison targets](#specify-comparison-targets) for details.
 Use list of file names from `files` output.
 
 ```yaml
-- uses: yumemi-inc/changed-files@v2
+- uses: yumemi-inc/changed-files@v3
   id: changed
 - run: |
     for file in ${{ steps.changed.outputs.files }}; do
@@ -36,7 +36,7 @@ Use list of file names from `files` output.
 By default, they are separated by spaces, but if you want to change the separator, specify it with `separator` input.
 
 ```yaml
-- uses: yumemi-inc/changed-files@v2
+- uses: yumemi-inc/changed-files@v3
   id: changed
   with:
     separator: ','
@@ -45,7 +45,7 @@ By default, they are separated by spaces, but if you want to change the separato
 If you want to output in JSON instead of plain text like above, specify it with `format` input (default is `plain`).
 
 ```yaml
-- uses: yumemi-inc/changed-files@v2
+- uses: yumemi-inc/changed-files@v3
   id: changed
   with:
     format: 'json'
@@ -56,7 +56,7 @@ If you want to output in JSON instead of plain text like above, specify it with 
 The list of files can be filtered by specifying `patterns` input.
 
 ```yaml
-- uses: yumemi-inc/changed-files@v2
+- uses: yumemi-inc/changed-files@v3
   id: changed
   with:
     patterns: |
@@ -67,7 +67,7 @@ The list of files can be filtered by specifying `patterns` input.
 To filter by file status, specify `statuses` input.
 
 ```yaml
-- uses: yumemi-inc/changed-files@v2
+- uses: yumemi-inc/changed-files@v3
   id: changed
   with:
     patterns: |
@@ -105,7 +105,7 @@ Often we are only interested in whether a particular file is included, not the l
 You can check it like `steps.<id>.outputs.files != null` (for JSON, `'[]'` instead of `null`), but you can also use `exists` output.
 
 ```yaml
-- uses: yumemi-inc/changed-files@v2
+- uses: yumemi-inc/changed-files@v3
   id: changed
   with:
     patterns: '!**/*.md'
@@ -122,7 +122,7 @@ This is useful for controlling step execution.
 
 ```yaml
 - uses: actions/checkout@v4
-- uses: yumemi-inc/changed-files@v2
+- uses: yumemi-inc/changed-files@v3
   id: changed
   with:
     patterns: '**/*.js'
@@ -133,7 +133,7 @@ This is useful for controlling step execution.
 #### Add a label to a pull request:
 
 ```yaml
-- uses: yumemi-inc/changed-files@v2
+- uses: yumemi-inc/changed-files@v3
   id: changed
   with:
     patterns: |
@@ -149,7 +149,7 @@ This is useful for controlling step execution.
 #### Annotate new files in a pull request using workflow commands:
 
 ```yaml
-- uses: yumemi-inc/changed-files@v2
+- uses: yumemi-inc/changed-files@v3
   id: changed
   with:
     patterns: '**/*.xml'
@@ -168,13 +168,13 @@ For more information on workflow commands, see [Workflow commands for GitHub Act
 #### Warn with a comment on a pull request:
 
 ```yaml
-- uses: yumemi-inc/changed-files@v2
+- uses: yumemi-inc/changed-files@v3
   id: changed-src
   with:
     patterns: |
       **/*.{js,ts}
       package.json
-- uses: yumemi-inc/changed-files@v2
+- uses: yumemi-inc/changed-files@v3
   id: changed-build
   with:
     patterns: 'dist/**'
@@ -187,7 +187,7 @@ For more information on workflow commands, see [Workflow commands for GitHub Act
 #### Make the job fail:
 
 ```yaml
-- uses: yumemi-inc/changed-files@v2
+- uses: yumemi-inc/changed-files@v3
   id: changed
   with:
     patterns: 'CHANGELOG.md'
@@ -202,7 +202,7 @@ For more information on workflow commands, see [Workflow commands for GitHub Act
 If you just want to run a Bash script, you can use `run` input. In this case, there is no need to define `id:`, since `exists` output is not used.
 
 ```yaml
-- uses: yumemi-inc/changed-files@v2
+- uses: yumemi-inc/changed-files@v3
   with:
     patterns: '!**/*.md'
     run: # do something..
@@ -214,7 +214,7 @@ If you just want to run a Bash script, you can use `run` input. In this case, th
 This can be used in comparison expressions.
 
 ```yaml
-- uses: yumemi-inc/changed-files@v2
+- uses: yumemi-inc/changed-files@v3
   id: changed
   with:
     patterns: '!doc/**'
@@ -231,7 +231,7 @@ This can be used in comparison expressions.
 #### Add a label to a pull request:
 
 ```yaml
-- uses: yumemi-inc/changed-files@v2
+- uses: yumemi-inc/changed-files@v3
   id: changed
   with:
     patterns: '!doc/**'
@@ -246,7 +246,7 @@ This can be used in comparison expressions.
 #### Warn with a comment on a pull request:
 
 ```yaml
-- uses: yumemi-inc/changed-files@v2
+- uses: yumemi-inc/changed-files@v3
   id: changed
   with:
     patterns: '!doc/**'
@@ -260,11 +260,23 @@ This can be used in comparison expressions.
 
 ### Specify comparison targets
 
-Basically, it is not necessary when using this action in `pull_request` events and `push` events, but you can specify `head-ref` and `base-ref` inputs if necessary.
-Any branch, tag, or commit SHA can be specified for tease inputs.
+Simply, the change files are determined between `head-ref` input and `base-ref` input references.
+The default values ​​for each workflow trigger event are as follows:
+
+| event | head-ref | base-ref |
+|:---|:---|:---|
+| pull_request | github.sha | github.base_ref |
+| push | github.sha | github.event.before[^1] / default branch |
+| merge_group | github.sha | github.event.merge_group.base_sha |
+| other events | github.sha | default branch |
+
+[^1]: Not present on tag push or new branch push. In that case, the default branch will be applied.
+
+Specify these inputs explicitly if necessary.
+**Any branch, tag, or commit SHA** can be specified for tease inputs.
 
 ```yaml
-- uses: yumemi-inc/changed-files@v2
+- uses: yumemi-inc/changed-files@v3
   with:
     head-ref: 'main' # branch to be released
     base-ref: 'release-x.x.x' # previous release tag
@@ -274,27 +286,18 @@ Any branch, tag, or commit SHA can be specified for tease inputs.
       npm run deploy
 ```
 
-A comparison is made between head ref and base ref.
-If `base-ref` input is not set, the changed files are from the single commit (if a branch is specified, its head commit) specified in `head-ref` input.
+Note that [three-dot](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-comparing-branches-in-pull-requests#three-dot-and-two-dot-git-diff-comparisons) comparison is performed, so `base-ref` must be older than `head-ref` if they are on the same commit line.
 
-The default for `head-ref` input is `${{ github.sha }}`, which includes all commits of that pull request in `pull_request` events.
-`base-ref` input is basically not set by default, but `${{ github.event.before }}` is set in `push` events (to clear it for some reason, specify an empty string like `''`).
-
-So when using this action in `pull_request` events and `push` events, these inputs do not need to be changed from the default unless necessary.
-If needed for these events or for use in other events, specify them explicitly.
-
-Note that `base-ref` must be older than `head-ref` if they are on the same commit line.
-
-> [!WARNING]  
-> The upper limit of the number of files when `base-ref` input is specified is **300** (**3000** when not specified).
-> Also, when `base-ref` input is specified, comparison is done using [three-dot](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-comparing-branches-in-pull-requests#three-dot-and-two-dot-git-diff-comparisons).
+> [!WARNING]
+> The upper limit for the number of files is `3000` when used with the default value in `pull_request`, `push`, and `merge_group` events (there is a head commit immediately after the base commit, like a merge commit), and `300` otherwise.
+> Also, this action does not support comparison with **two-dot**.
 > These limitations are because this aciton uses GitHub API.
 >
 > If these limitations are a problem, use [yumem-inc/path-filter](https://github.com/yumemi-inc/path-filter).
-> This has limited functionality as it does not filter by status or output the number of changed lines, but since it does not have the above limitations, it functions as a complete path filter using `patterns` inut and `exists` output.
+> This has limited functionality as it does not filter by status or output the number of changed lines, but since it does not have the above limitations, it works as a complete path filter.
 >
 > My recommendation is to use this action, which has many functions, in `pull_request` events.
-> Since `base-ref` input is not specified, there is no problem unless it is a large pull request with 3000 files.
+> There is no problem unless it is a large pull request with `3000` files.
 > For other events, you don't need many functions, so use [yumem-inc/path-filter](https://github.com/yumemi-inc/path-filter).
 
 ## Tips
@@ -307,7 +310,7 @@ Set this action's `exists` output to the job's output, and reference it in subse
 outputs:
   exists: ${{ steps.changed.outputs.exists }}
 steps:
-  - uses: yumemi-inc/changed-files@v2
+  - uses: yumemi-inc/changed-files@v3
     id: changed
     with:
       patterns: '**/*.{kt,kts}'
@@ -328,11 +331,11 @@ jobs:
       exists-src: ${{ steps.changed-src.outputs.exists }}
       exists-doc: ${{ steps.changed-doc.outputs.exists }}
     steps:
-      - uses: yumemi-inc/changed-files@v2
+      - uses: yumemi-inc/changed-files@v3
         id: changed-src
         with:
           patterns: 'src/**'
-      - uses: yumemi-inc/changed-files@v2
+      - uses: yumemi-inc/changed-files@v3
         id: changed-doc
         with:
           patterns: 'doc/**'
@@ -363,7 +366,7 @@ jobs:
 Use JSON format output and [actions/github-script](https://github.com/actions/github-script).
 
 ```yaml
-- uses: yumemi-inc/changed-files@v2
+- uses: yumemi-inc/changed-files@v3
   id: changed
   with:
     format: 'json'
@@ -386,7 +389,7 @@ Characters after `#` are treated as comments.
 Therefore, you can write an explanation for the pattern as a comment.
 
 ```yaml
-- uses: yumemi-inc/changed-files@v2
+- uses: yumemi-inc/changed-files@v3
   id: changed
   with:
     patterns: |
@@ -399,24 +402,41 @@ Therefore, you can write an explanation for the pattern as a comment.
       !doc/**/*.png # exclude image files
 ```
 
-### Debugging
+### List of changed files and list after filtering
 
-A list of changed files before and after filtering, including status, etc., is output to a file in JSON format and can be accessed as follows:
+They are output to a file in JSON format and can be accessed as follows:
+
+- `${{ steps.<id>.outputs.action-path }}/files.json`
+- `${{ steps.<id>.outputs.action-path }}/filtered_files.json`.
+
+<details>
+<summary>more</summary>
+
+Refer to these files when debugging `head-ref`, `base-ref`, and other inputs of filtering conditions.
+For example, display them in the job summary like this:
 
 ```yaml
-- uses: yumemi-inc/changed-files@v2
+- uses: yumemi-inc/changed-files@v3
   id: changed
   with:
     patterns: '!**/*.md'
 - run: |
-    # before filtering
-    cat '${{ steps.changed.outputs.action-path }}/files.json'
-    # after filtering
-    cat '${{ steps.changed.outputs.action-path }}/filtered_files.json'
+    {
+      echo '### files before filtering'
+      echo '```json'
+      cat '${{ steps.changed.outputs.action-path }}/files.json' | jq
+      echo '```'
+      echo '### files after filtering'
+      echo '```json'
+      cat '${{ steps.changed.outputs.action-path }}/filtered_files.json' | jq
+      echo '```'
+    } >> "$GITHUB_STEP_SUMMARY"
 ```
 
-Refer to these files when debugging `head-ref`, `base-ref`, and other inputs of filtering conditions.
 You may use these files for purposes other than debugging, but note that these files will be overwritten if you use this action multiple times in the same job.
+
+And, in this action's `run` input, access them with Bash variables like `$GITHUB_ACTION_PATH/files.json`, but note that the Bash script in `run` input will not be executed if there are no files after filtering.
+</details>
 
 ## About the glob expression of `pattern` input
 
