@@ -289,7 +289,7 @@ Specify these inputs explicitly if necessary.
 Note that [three-dot](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-comparing-branches-in-pull-requests#three-dot-and-two-dot-git-diff-comparisons) comparison is performed, so `base-ref` must be older than `head-ref` if they are on the same commit line.
 
 > [!WARNING]
-> The upper limit for the number of files is `3000` when used with the default value in `pull_request`, `push`, and `merge_group` events (there is a head commit immediately after the base commit, like a merge commit), and `300` otherwise.
+> The upper limit for the number of files is *3,000* when used with the default value in `pull_request`, `push`, and `merge_group` events (there is a head commit immediately after the base commit, like a merge commit), and *300* otherwise.
 > Also, this action does not support comparison with **two-dot**.
 > These limitations are because this aciton uses GitHub API.
 >
@@ -297,7 +297,7 @@ Note that [three-dot](https://docs.github.com/en/pull-requests/collaborating-wit
 > This has limited functionality as it does not filter by status or output the number of changed lines, but since it does not have the above limitations, it works as a complete path filter.
 >
 > My recommendation is to use this action, which has many functions, in `pull_request` events.
-> There is no problem unless it is a large pull request with `3000` files.
+> There is no problem unless it is a large pull request with *3,000* files.
 > For other events, you don't need many functions, so use [yumem-inc/path-filter](https://github.com/yumemi-inc/path-filter).
 
 ## Tips
