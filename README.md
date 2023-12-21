@@ -261,47 +261,18 @@ This can be used in comparison expressions.
 ### Specify comparison targets
 
 Simply, the change files are determined between `head-ref` input and `base-ref` input references.
-The default values ​​for each workflow trigger event are as follows:
+The behavior is the same as [yumemi-inc/path-filter](https://github.com/yumemi-inc/path-filter#specify-comparison-targets), so refer to it for details, but this Changed Files action has the following limitations:
 
-| event | head-ref | base-ref |
-|:---|:---|:---|
-| pull_request | github.sha | github.base_ref |
-| push | github.sha | github.event.before[^1] / default branch |
-| merge_group | github.sha | github.event.merge_group.base_sha |
-| other events[^2] | github.sha | default branch |
+- The upper limit for the number of files is *3,000* when used with the default value in `pull_request`, `pull_request_target`, `push`, and `merge_group` events (there is a head commit immediately after the base commit, like a merge commit), and *300* otherwise.
+- Always performs [three-dot](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-comparing-branches-in-pull-requests#three-dot-and-two-dot-git-diff-comparisons) comparison, does not support two-dot.
 
-[^1]: Not present on tag push or new branch push. In that case, the default branch will be applied.
-[^2]: There is no default value for `pull_request_target` events, but you can specify `refs/pull/${{ github.event.number }}/merge` to `head-ref` input.
+These limitations are because this aciton uses GitHub API.
+If these limitations are a problem, use **yumem-inc/path-filter**.
+Although there are no functions such as filter by status or output the number of changed lines, but since it does not have the above limitations, it works as a complete path filter.
 
-Specify these inputs explicitly if necessary.
-**Any branch, tag, or commit SHA** can be specified for tease inputs[^3].
-
-[^3]: In addition to direct specification of branch names and tag names, references such as `refs/heads/xxx`, `refs/pull/xxx/merge`, and `refs/tags/xxx` are also supported.
-
-```yaml
-- uses: yumemi-inc/changed-files@v3
-  with:
-    head-ref: 'main' # branch to be released
-    base-ref: 'release-x.x.x' # previous release tag
-    patterns: '**/*.js'
-    run: |
-      ...
-      npm run deploy
-```
-
-Note that [three-dot](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-comparing-branches-in-pull-requests#three-dot-and-two-dot-git-diff-comparisons) comparison is performed, so `base-ref` must be older than `head-ref` if they are on the same commit line.
-
-> [!WARNING]
-> The upper limit for the number of files is *3,000* when used with the default value in `pull_request`, `push`, and `merge_group` events (there is a head commit immediately after the base commit, like a merge commit), and *300* otherwise.
-> Also, this action does not support comparison with **two-dot**.
-> These limitations are because this aciton uses GitHub API.
->
-> If these limitations are a problem, use [yumem-inc/path-filter](https://github.com/yumemi-inc/path-filter).
-> This has limited functionality as it does not filter by status or output the number of changed lines, but since it does not have the above limitations, it works as a complete path filter.
->
-> My recommendation is to use this action, which has many functions, in `pull_request` events.
-> There is no problem unless it is a large pull request with *3,000* files.
-> For other events, you don't need many functions, so use [yumem-inc/path-filter](https://github.com/yumemi-inc/path-filter).
+My recommendation is to use this Changed Files action, which has functions useful for checking pull requests, in `pull_request`, `pull_request_target` and `merge_group` events.
+There is no problem unless it is a large pull request with *3,000* files.
+For other events, you don't need many functions, so use **yumem-inc/path-filter**.
 
 ## Tips
 
