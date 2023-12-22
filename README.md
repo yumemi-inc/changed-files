@@ -13,7 +13,7 @@ Note that this action requires `contents: read` permission.
 ### Supported workflow trigger events
 
 Works on any event.
-See [Specify comparison targets](#specify-comparison-targets) for details.
+Basically it works as is, but if you want to customize it, refer to the [Specify comparison targets](#specify-comparison-targets) section.
 
 ### Use a list of files
 
@@ -109,7 +109,7 @@ You can check it like `steps.<id>.outputs.files != null` (for JSON, `'[]'` inste
   id: changed
   with:
     patterns: '!**/*.md'
-- if: steps.changed.outputs.exists == 'true'
+- if: steps.changed.outputs.exists == 'true' # or fromJSON(steps.changed.outputs.exists)
   run: # do something..
 ```
 
